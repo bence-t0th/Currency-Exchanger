@@ -1,14 +1,22 @@
-import javafx.animation.AnimationTimer
 import javafx.application.Application
 import javafx.event.EventHandler
+import javafx.geometry.Pos
 import javafx.scene.Group
 import javafx.scene.Scene
 import javafx.scene.canvas.Canvas
 import javafx.scene.canvas.GraphicsContext
+import javafx.scene.control.Button
+import javafx.scene.control.ChoiceBox
+import javafx.scene.control.Label
+import javafx.scene.control.TextField
 import javafx.scene.image.Image
-import javafx.scene.input.KeyCode
-import javafx.scene.paint.Color
+import javafx.scene.layout.*
+import javafx.scene.text.Font
+import javafx.scene.text.Text
+import javafx.scene.text.TextAlignment
+import javafx.scene.text.TextFlow
 import javafx.stage.Stage
+
 
 class Exchanger : Application() {
     companion object {
@@ -18,99 +26,72 @@ class Exchanger : Application() {
 
     private lateinit var mainScene: Scene
     private lateinit var graphicsContext: GraphicsContext
+    private lateinit var background: Image
 
-    private lateinit var space: Image
-    private lateinit var sun: Image
+    private val fromLabel = Label("From:")
+    private var fromTextField = TextField()
+    private var choiceFrom = ChoiceBox<String>()
 
-    private var sunX = WIDTH / 2
-    private var sunY = HEIGHT / 2
+    private val toLabel = Label("To:")
+    private var choiceTo = ChoiceBox<String>()
 
-    private var lastFrameTime: Long = System.nanoTime()
+    private val exchangeButton = Button("Exchange")
 
-    // use a set so duplicates are not possible
-    private val currentlyActiveKeys = mutableSetOf<KeyCode>()
+    private val resultLabel = Label("")
 
     override fun start(mainStage: Stage) {
-        mainStage.title = "Event Handling"
+        mainStage.title = "Currency Exchanger"
+        mainStage.isResizable = false
+
+        addOptions()
+
+        fromLabel.font = Font.font(20.0)
+        fromTextField.font = Font.font(20.0)
+        val fromCurrency = HBox(20.0, fromLabel, fromTextField, choiceFrom)
+        fromCurrency.alignment = Pos.CENTER
+
+        toLabel.font = Font.font(20.0)
+        val toCurrency = HBox(20.0, toLabel, choiceTo)
+        toCurrency.alignment = Pos.CENTER
+
+        exchangeButton.font = Font.font(20.0)
+
+        resultLabel.font = Font.font(40.0)
+        resultLabel.alignment = Pos.CENTER
+
+        val form = VBox(50.0, fromCurrency, toCurrency, exchangeButton, resultLabel)
+        form.alignment = Pos.CENTER
 
         val root = Group()
-        mainScene = Scene(root)
+        mainScene = Scene(form, 512.0, 512.0)
         mainStage.scene = mainScene
-
         val canvas = Canvas(WIDTH.toDouble(), HEIGHT.toDouble())
+
+        background = Image(getResource("/money.png"))
+        val bgImage = BackgroundImage(
+                background, BackgroundRepeat.NO_REPEAT, BackgroundRepeat.NO_REPEAT,
+                BackgroundPosition.CENTER, BackgroundSize.DEFAULT
+        )
+        val bgFinal = Background(bgImage)
+        form.background = bgFinal
         root.children.add(canvas)
 
         prepareActionHandlers()
-
-        graphicsContext = canvas.graphicsContext2D
-
-        loadGraphics()
-
-        // Main loop
-        object : AnimationTimer() {
-            override fun handle(currentNanoTime: Long) {
-                tickAndRender(currentNanoTime)
-            }
-        }.start()
 
         mainStage.show()
     }
 
     private fun prepareActionHandlers() {
-        mainScene.onKeyPressed = EventHandler { event ->
-            currentlyActiveKeys.add(event.code)
-        }
-        mainScene.onKeyReleased = EventHandler { event ->
-            currentlyActiveKeys.remove(event.code)
+        exchangeButton.onAction = EventHandler {
+            resultLabel.text = "${fromTextField.text} ${choiceTo.value}"
         }
     }
 
-    private fun loadGraphics() {
-        // prefixed with / to indicate that the files are
-        // in the root of the "resources" folder
-        space = Image(getResource("/space.png"))
-        sun = Image(getResource("/sun.png"))
+    private fun addOptions() {
+        choiceFrom.items.add("HUF")
+        choiceFrom.items.add("EUR")
+
+        choiceTo.items.add("HUF")
+        choiceTo.items.add("EUR")
     }
-
-    private fun tickAndRender(currentNanoTime: Long) {
-        // the time elapsed since the last frame, in nanoseconds
-        // can be used for physics calculation, etc
-        val elapsedNanos = currentNanoTime - lastFrameTime
-        lastFrameTime = currentNanoTime
-
-        // clear canvas
-        graphicsContext.clearRect(0.0, 0.0, WIDTH.toDouble(), HEIGHT.toDouble())
-
-        // draw background
-        graphicsContext.drawImage(space, 0.0, 0.0)
-
-        // perform world updates
-        updateSunPosition()
-
-        // draw sun
-        graphicsContext.drawImage(sun, sunX.toDouble(), sunY.toDouble())
-
-        // display crude fps counter
-        val elapsedMs = elapsedNanos / 1_000_000
-        if (elapsedMs != 0L) {
-            graphicsContext.fill = Color.WHITE
-            graphicsContext.fillText("${1000 / elapsedMs} fps", 10.0, 10.0)
-        }
-    }
-
-    private fun updateSunPosition() {
-        if (currentlyActiveKeys.contains(KeyCode.LEFT)) {
-            sunX--
-        }
-        if (currentlyActiveKeys.contains(KeyCode.RIGHT)) {
-            sunX++
-        }
-        if (currentlyActiveKeys.contains(KeyCode.UP)) {
-            sunY--
-        }
-        if (currentlyActiveKeys.contains(KeyCode.DOWN)) {
-            sunY++
-        }
-    }
-
 }
