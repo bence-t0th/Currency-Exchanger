@@ -12,11 +12,12 @@ import javafx.scene.control.TextField
 import javafx.scene.image.Image
 import javafx.scene.layout.*
 import javafx.scene.text.Font
-import javafx.scene.text.Text
-import javafx.scene.text.TextAlignment
-import javafx.scene.text.TextFlow
 import javafx.stage.Stage
-
+import retrofit2.Call
+import retrofit2.Callback
+import retrofit2.Response
+import retrofit2.Retrofit
+import retrofit2.converter.gson.GsonConverterFactory
 
 class Exchanger : Application() {
     companion object {
@@ -38,6 +39,13 @@ class Exchanger : Application() {
     private val exchangeButton = Button("Exchange")
 
     private val resultLabel = Label("")
+
+    val retrofit = Retrofit.Builder()
+        .baseUrl("http://api.exchangeratesapi.io/")
+        .addConverterFactory(GsonConverterFactory.create())
+        .build()
+
+    val api = retrofit.create(ExchangeApi::class.java)
 
     override fun start(mainStage: Stage) {
         mainStage.title = "Currency Exchanger"
@@ -83,7 +91,20 @@ class Exchanger : Application() {
 
     private fun prepareActionHandlers() {
         exchangeButton.onAction = EventHandler {
-            resultLabel.text = "${fromTextField.text} ${choiceTo.value}"
+
+            val moneyCall = api.getMoney("USD")
+
+            moneyCall.enqueue(object : Callback<ExchangeResult> {
+                override fun onFailure(call: Call<ExchangeResult>, t: Throwable) {
+                    println(t.message)
+                    resultLabel.text = t.message
+                }
+
+                override fun onResponse(call: Call<ExchangeResult>, response: Response<ExchangeResult>) {
+                    var moneyResult = response.body()
+                    resultLabel.text = "HUF: ${moneyResult?.rates?.HUF}"
+                }
+            })
         }
     }
 
