@@ -1,4 +1,8 @@
+import util.getResource
+import api.ExchangeApi
+import api.ExchangeResult
 import javafx.application.Application
+import javafx.application.Platform
 import javafx.event.EventHandler
 import javafx.geometry.Pos
 import javafx.scene.Group
@@ -18,6 +22,7 @@ import retrofit2.Callback
 import retrofit2.Response
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
+import util.round
 
 class Exchanger : Application() {
     companion object {
@@ -29,29 +34,33 @@ class Exchanger : Application() {
     private lateinit var graphicsContext: GraphicsContext
     private lateinit var background: Image
 
-    private val fromLabel = Label("From:")
     private var fromTextField = TextField()
     private var choiceFrom = ChoiceBox<String>()
-
-    private val toLabel = Label("To:")
     private var choiceTo = ChoiceBox<String>()
-
     private val exchangeButton = Button("Exchange")
-
     private val resultLabel = Label("")
 
     val retrofit = Retrofit.Builder()
-        .baseUrl("http://api.exchangeratesapi.io/")
-        .addConverterFactory(GsonConverterFactory.create())
-        .build()
+                .baseUrl("http://api.exchangeratesapi.io/")
+                .addConverterFactory(GsonConverterFactory.create())
+                .build()
 
     val api = retrofit.create(ExchangeApi::class.java)
 
     override fun start(mainStage: Stage) {
+        createUI(mainStage)
+
+        exchange()
+
+        mainStage.show()
+    }
+
+    private fun createUI(mainStage: Stage) {
+        val fromLabel = Label("From:")
+        val toLabel = Label("To:")
+
         mainStage.title = "Currency Exchanger"
         mainStage.isResizable = false
-
-        addOptions()
 
         fromLabel.font = Font.font(20.0)
         fromTextField.font = Font.font(20.0)
@@ -84,35 +93,57 @@ class Exchanger : Application() {
         form.background = bgFinal
         root.children.add(canvas)
 
-        prepareActionHandlers()
-
-        mainStage.show()
+        fillWithCurrencies()
     }
 
-    private fun prepareActionHandlers() {
+    private fun exchange() {
         exchangeButton.onAction = EventHandler {
+            val fromCurrency = choiceFrom.value
+            val call = api.getMoney(fromCurrency)
 
-            val moneyCall = api.getMoney("USD")
-
-            moneyCall.enqueue(object : Callback<ExchangeResult> {
+            call.enqueue(object : Callback<ExchangeResult> {
                 override fun onFailure(call: Call<ExchangeResult>, t: Throwable) {
-                    println(t.message)
-                    resultLabel.text = t.message
+                    Platform.runLater {
+                        resultLabel.text = t.message
+                    }
                 }
 
                 override fun onResponse(call: Call<ExchangeResult>, response: Response<ExchangeResult>) {
-                    var moneyResult = response.body()
-                    resultLabel.text = "HUF: ${moneyResult?.rates?.HUF}"
+                    val result = response.body()
+                    Platform.runLater {
+                        var rate = result?.rates?.getRates(choiceFrom.value, choiceTo.value)
+                        if (rate != null) {
+                            if (choiceTo.value == "EUR")
+                                rate /= 1.0
+                        }
+                        println(rate)
+                        resultLabel.text =
+                            "${round(fromTextField.characters.toString().toDouble() * rate!!)} ${choiceTo.value}"
+                    }
                 }
             })
         }
     }
 
-    private fun addOptions() {
+    private fun fillWithCurrencies() {
         choiceFrom.items.add("HUF")
         choiceFrom.items.add("EUR")
+        choiceFrom.items.add("USD")
+        choiceFrom.items.add("CAD")
+        choiceFrom.items.add("AUD")
+        choiceFrom.items.add("RUB")
+        choiceFrom.items.add("CHF")
+
+        choiceFrom.value = "EUR"
 
         choiceTo.items.add("HUF")
         choiceTo.items.add("EUR")
+        choiceTo.items.add("USD")
+        choiceTo.items.add("CAD")
+        choiceTo.items.add("AUD")
+        choiceTo.items.add("RUB")
+        choiceTo.items.add("CHF")
+
+        choiceTo.value = "HUF"
     }
 }
